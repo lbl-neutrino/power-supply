@@ -1,10 +1,9 @@
 from smbus import SMBus   # pmbus command library
 #import math
-import signal
 import sys
 import time
 import csv
-import datetime
+from datetime import datetime
 import threading
  
 class power_supply:
@@ -18,11 +17,11 @@ class power_supply:
 		if page not in self.valid_pages:
 			raise ValueError(f"Invalid module page {page}.")
 		self.bus.write_byte_data(self.address, 0x00, page)
-		print(f"PAGE set to Module {page}")  
+	#	print(f"PAGE set to Module {page}")  
 
 	def on_mod(self, page):                              #turns on power supply with 0x80
-		self.bus.write_byte_data(self.address, 0x01, 0x80)  
 		self.set_page(page)		
+		self.bus.write_byte_data(self.address, 0x01, 0x80)  
 		print(f"Module {page} is ON")
 
 	def off_mod(self, page):                              #turns off power supply with 0x00
@@ -70,13 +69,6 @@ class power_supply:
 		self.set_voltage(page, current_voltage + increment)
 
 
-def Ctrl_C_signal(sig, frame):
-	print("Ctrl+C input. Turning off power supply and closing...")
-	if power_supp:
-		power_supp.off_mod(1)
-		power_supp.close()
-	sys.exit(0)
-
 #def adjust_voltage(self, page, volt_inc = 0.1):
 #	self.get_voltage
 #	while True:
@@ -90,7 +82,7 @@ def Ctrl_C_signal(sig, frame):
 #				self.set_voltage(page, self.read_voltage(page) - 2)
 #		time.sleep(5)
 
-def mod_log(modules, filename, interval = 5)
+def mod_log(modules, filename, interval = 5):
 	addr = 0x50
 	power_supp = power_supply(addr)
 	
@@ -100,10 +92,11 @@ def mod_log(modules, filename, interval = 5)
 		for page in modules:
 			header.append(f"Module {page} Temp ")
 			header.append(f"Module {page} Voltage ")
-		csv.writer.writerow(header)
+		csvwriter.writerow(header)
 		try:
 			while True:
-				timestamp = datetime.now().strftime('%H:%M:%S')
+				now = datetime.now()
+				timestamp = now.strftime('%H:%M:%S')
 				data = []
 				for page in modules:
 					temp = power_supp.read_temperature(page)
@@ -111,19 +104,24 @@ def mod_log(modules, filename, interval = 5)
 					data.append(temp)
 					data.append(voltage)
 					#print(f"Module {page}: {temp} °C, {voltage} V")
-				csv.writer.writerow([timestamp] + data)
+				csvwriter.writerow([timestamp] + data)
+				csvfile.flush()
 				time.sleep(interval)
 		except KeyboardInterrupt:
 			power_supp.close()
 			
-
+#0x50 is slave address for 1010000 of A6 through A0 (see table 2 in pmbus manual)
 addr = 0x50   #the default slave address = 1010000 = 0x50
 power_supp = power_supply(addr)
-signal.signal(signal.SIGINT, Ctrl_C_signal)
+#signal.signal(signal.SIGINT, Ctrl_C_signal)
+mods = [1, 2, 3, 4]
+log_file = "module_log.csv"	
+#mod_log(mods, log_file, interval = 5)	
+thread_log = threading.Thread(target = mod_log, args = (mods, log_file, 5))
+thread_log.start()
 
-#0x50 is slave address for 1010000 of A6 through A0 (see table 2 in pmbus manual)
 
-if True:
+try:
 	while True:
 		user_input = input("type 'on' to turn on power supply, 'off' to turn off, 'set' to set the voltage, 'read' to read the voltage, 'temp' to read the temp, 'quit' to exit the program: ")
 		
@@ -144,9 +142,9 @@ if True:
 				voltage = power_supp.read_voltage(page)
 				print(f"Current Voltage is {voltage} V")		
 
-			elif user_input == 'quit':
-				print("Exiting...")
-				break
+		#elif user_input == 'quit':
+		#	print("Exiting...")
+		#	break
 
 			elif user_input == 'read temp':
 				temp = power_supp.read_temperature(page)
@@ -155,16 +153,10 @@ if True:
 		else:	
 			print("invalid command. enter 'on', 'off', 'set volt', 'read volt', 'read temp', 'quit'.")
 
-mods = [1, 2, 3, 4]
-log_file = "module_log.csv"	
-mod_log(mods, log, interval = 5)	
-thread_log = threading.Thread(target = mod_log, args = (mods, log_file, 5))
-thread_log.start()
-
-#finally: 
-#	power_supp.off_mod()
-#	power_supp.close()
-
+finally: 
+	for page in power_supp.valid_pages:
+		power_supp.off_mod(page)
+	power_supp.close()
 
 
 
