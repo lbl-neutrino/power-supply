@@ -8,8 +8,8 @@
 import numpy as np
 
 # influxDB is the database on labpix used by grafana to monitor controls
-import influxdb_client
-from influxdb_client.client.write_api import SYNCHRONOUS
+#import influxdb_client
+#from influxdb_client.client.write_api import SYNCHRONOUS
 
 # An SPI (Serial Peripheral Interface bus) transports information to or 
 # from the AD7124-8 (temperature sensors)
@@ -18,25 +18,25 @@ spi = spidev.SpiDev()           # abbreviate spidev
 
 # serial is used to read/write data to the pressure gauge through the
 # raspberry pi's USB port
-import serial
+#import serial
 
 # pyvisa contains a library of commands used to communicate with the 
 # Rigol DP932U that supplies power to the heating strips. Before it 
 # will work you must install pyusb, pyvisa, and pyvisa-py on the server.
-import pyvisa
+#import pyvisa
 
 import time
 
 # urllib3 has functions that will help with timeout url problems
-import urllib3
+#import urllib3
 
 import time
 
 # Import ADS1x15 command library to read high voltages via ADC
-import Adafruit_ADS1x15
+#import Adafruit_ADS1x15
 
 # shorten the prefix for ADS1115 commands
-adc = Adafruit_ADS1x15.ADS1115()
+#adc = Adafruit_ADS1x15.ADS1115()
 
 ######################################################################
 # Functions
@@ -149,22 +149,25 @@ def read_tempers():
         # read the status register
         msg = [address_status + read*64, 0]
         status_result = spi.xfer2(msg)
+        print(status_result)
 
         # keep reading the status register until there is new data 
         # (i.e. highest bit=0)
         while status_result[1] > 0b0111_111:
             status_result = spi.xfer2(msg)
+            
 
         # read the new adc measurement
         msg = [address_data + read*64, 0, 0, 0]
         data_result = spi.xfer2(msg)
-
+        
         # convert the 24 bit adc reading into a decimal value
         decimal_result = data_result[1]*(2**16) + data_result[2]*(2**8) + data_result[3]
-
+        temperatures[sensor]=decimal_result
+        continue
         # Determine resistance for the sensor reading
         resistance = 91.02 + (42.94 - 91.02) * (decimal_result - adc_910) / (adc_429 - adc_910)
-
+        
         # Convert resistance to temperature in Celcius (via interpolation
         # function from convert_resistance_to_termperature.py, and 
         # convert celcius to kelvin. First check range(19,390) which 
@@ -174,9 +177,9 @@ def read_tempers():
             # this eroneous value is intended to alert user to a problem
             temperatures[sensor] = float(0.00)
             
-            print(f"ADC reading {resistance} from sensor {sensor}"
-                " not in range(19,390) \nas required by "
-                "interp_resist_to_temp.\nTemp set to {temperatures[sensor]")
+         #   print(f"ADC reading {resistance} from sensor {sensor}"
+         #       " not in range(19,390) \nas required by "
+         #       "interp_resist_to_temp.\nTemp set to {temperatures[sensor]")
 
         else:
             temperatures[sensor] = interp_resist_to_temp(resistance) + 273.15
@@ -248,12 +251,12 @@ def read_heat():
 ####################################################################
 
 # open file that converts resistance to temperature
-with open("convert_resistance_to_temperature.py") as convert_r:
-    exec(convert_r.read())
+#with open("convert_resistance_to_temperature.py") as convert_r:
+#    exec(convert_r.read())
 
 # initialize CDC registers to measure liquid level
-with open("init_cdc.py") as init_l:
-    exec(init_l.read())
+#with open("init_cdc.py") as init_l:
+#    exec(init_l.read())
 
 # initialize ADC registers to measure temperatures
 with open("init_temperature_registers.py") as init_t:
@@ -261,16 +264,16 @@ with open("init_temperature_registers.py") as init_t:
 
 # pg is a set of functions used to communicate with the pressure gauge
 # with arguments: (port, baudrate, # data bits,parity=none, stop bits)
-pg = serial.Serial('/dev/ttyUSB0', 9600, 8, 'N', 1, timeout=1)
+#pg = serial.Serial('/dev/ttyUSB0', 9600, 8, 'N', 1, timeout=1)
 
 # initialize pressure gauge
-with open("init_pressure.py") as init_p:
-    exec(init_p.read())
+#with open("init_pressure.py") as init_p:
+#    exec(init_p.read())
 
 # Connect to the heating strip power supply
-usb_heat = 'USB0::6833::42152::DP9C243500285::0::INSTR' # ID the port
-rm = pyvisa.ResourceManager('@py')          # abreviate resource mgr
-power_supply = rm.open_resource(usb_heat)   # connect to the usb port
+#usb_heat = 'USB0::6833::42152::DP9C243500285::0::INSTR' # ID the port
+#rm = pyvisa.ResourceManager('@py')          # abreviate resource mgr
+#power_supply = rm.open_resource(usb_heat)   # connect to the usb port
 ######################################################################
 # set global variables
 ######################################################################
@@ -298,73 +301,74 @@ url = "http://labpix.dhcp.lbl.gov:8086"
 ######################################################################
 
 # sign into and set up Influxbd for pushing data
-client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
-write_api = client.write_api(write_options=SYNCHRONOUS)
+#client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
+#write_api = client.write_api(write_options=SYNCHRONOUS)
 
 while(run == 0):
 
     # get new level value from cdc
-    level = read_level()  # read a new value from cdc
+#    level = read_level()  # read a new value from cdc
 
     # send level to influxDB
-    p = influxdb_client.Point("larpix_slow_controls").field("level", level)
+#    p = influxdb_client.Point("larpix_slow_controls").field("level", level)
 
-    try:
-        write_api.write(bucket=bucket, org=org, record=p)
-    except urllib3.exceptions.ReadTimeoutError:
-        continue
+#    try:
+#        write_api.write(bucket=bucket, org=org, record=p)
+#    except urllib3.exceptions.ReadTimeoutError:
+#        continue
 
     # get 4 new temperature values from adc
     tempers = read_tempers()
-
-    # send temperatures to influxdb
-    for i in range(0,4):
-        p = influxdb_client.Point("larpix_slow_controls").field(t_labels[i], float(tempers[i]))
-    
-        try:
-            write_api.write(bucket=bucket, org=org, record=p)
-        except urllib3.exceptions.ReadTimeoutError:
-            continue
+    print(tempers)
+    time.sleep(1)
+#    # send temperatures to influxdb
+#    for i in range(0,4):
+#        p = influxdb_client.Point("larpix_slow_controls").field(t_labels[i], float(tempers[i]))
+#    
+#        try:
+#            write_api.write(bucket=bucket, org=org, record=p)
+#        except urllib3.exceptions.ReadTimeoutError:
+#            continue
     
     # get power supplied by DP932U to heat strips
-    heat1, heat2 = read_heat()
+#    heat1, heat2 = read_heat()
     
     # if the temperature at the bottom of the cryostat (tempers[0])
     # gets above 200K, wait 5s, test again, if still > 200K (i.e. 
     # not an eroneous reading) then turn off heating strips
-    if ((heat1 or heat2) > 1) and (tempers[3] or tempers[0] > 200): 
-        time.sleep(5)
-        if (tempers[3] or tempers[0]) > 200:
-            set_heat(0,0,0)
-            heat1, heat2 = read_heat()
+#    if ((heat1 or heat2) > 1) and (tempers[3] or tempers[0] > 200): 
+#        time.sleep(5)
+#        if (tempers[3] or tempers[0]) > 200:
+#            set_heat(0,0,0)
+#            heat1, heat2 = read_heat()
 
     # send power supplied to heat strips into influxdb
-    p = influxdb_client.Point("larpix_slow_controls").field("heat_power1", heat1)
-    try:
-        write_api.write(bucket=bucket, org=org, record=p)
-    except urllib3.exceptions.ReadTimeoutError:
-        continue
+#    p = influxdb_client.Point("larpix_slow_controls").field("heat_power1", heat1)
+#    try:
+#        write_api.write(bucket=bucket, org=org, record=p)
+#    except urllib3.exceptions.ReadTimeoutError:
+#        continue
 
-    p = influxdb_client.Point("larpix_slow_controls").field("heat_power2", heat2)
-    try:
-        write_api.write(bucket=bucket, org=org, record=p)
-    except urllib3.exceptions.ReadTimeoutError:
-        continue
+#    p = influxdb_client.Point("larpix_slow_controls").field("heat_power2", heat2)
+#    try:
+#        write_api.write(bucket=bucket, org=org, record=p)
+#    except urllib3.exceptions.ReadTimeoutError:
+#        continue
 
     # read crude pressure
-    pressure = read_pressure()
+ #   pressure = read_pressure()
     # write pressure to influxDB
-    p = influxdb_client.Point("larpix_slow_controls").field("pressure", pressure)
-    try:
-        write_api.write(bucket=bucket, org=org, record=p)
-    except urllib3.exceptions.ReadTimeoutError:
-        continue
+  #  p = influxdb_client.Point("larpix_slow_controls").field("pressure", pressure)
+   # try:
+   #     write_api.write(bucket=bucket, org=org, record=p)
+   # except urllib3.exceptions.ReadTimeoutError:
+   #     continue
 
     # read more precise vacuum pressure
-    vac_pressure = read_vac_pressure()
+    #vac_pressure = read_vac_pressure()
     # write vac pressure to influxDB
-    p = influxdb_client.Point("larpix_slow_controls").field("vac_pressure", vac_pressure)
-    try:
-        write_api.write(bucket=bucket, org=org, record=p)
-    except urllib3.exceptions.ReadTimeoutError:
-        continue
+    #p = influxdb_client.Point("larpix_slow_controls").field("vac_pressure", vac_pressure)
+    #try:
+    #    write_api.write(bucket=bucket, org=org, record=p)
+    #except urllib3.exceptions.ReadTimeoutError:
+    #    continue
