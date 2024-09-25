@@ -22,7 +22,7 @@ def set_up_spi():
     bus = 0                         # only SPI bus 0 is available
     device = 0                      # chip select pin (either 0 or 1)
     spi.open(bus, device)           # open the specified connection
-    spi.max_speed_hz = 500000       # set SPI speed
+    spi.max_speed_hz = 50000       # set SPI speed
     spi.mode = 3 # Mode 3 samples on falling edge, shifts out on rising edge
 
 # set the AD7124-8 regsiters for our purposes
