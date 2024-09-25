@@ -61,6 +61,13 @@ class power_supply:
 		temp_com = int(limit * (2 ** exp))
 		self.bus.write_word_data(self.address, 0x4F, temp_com)
 
+	def read_current(self, page):
+		self.set_page(page)
+		exp = -8
+		data = self.bus.read_word_data(self.address, 0x8C)
+		current = data * (2 ** exp)
+		return current
+
 	def close(self):
 		self.bus.close()
 
@@ -68,6 +75,62 @@ class power_supply:
 		current_voltage = voltage
 		self.set_voltage(page, current_voltage + increment)
 
+	def read_power(self, page):
+		self.set_page(page)
+		voltage = self.read_voltage(page)
+		current = self.read_current(page)
+		power = current * voltage
+		return power
+
+import numpy as np
+	
+class power_adjust:
+
+	def __init__(self, modules, sleep_dt=1, n_samples=20):
+		addr = 0x50
+		self.modules=modules
+		self.sleep_dt = sleep_dt
+		self.power_supp = power_supply(addr)
+		self.power = {}
+		for p in modules: self.power[p] = np.zeros(n_samples)
+		
+	def update(self):
+		for page in modules:
+			P = self.power_supp.read_power(page)
+			self.power[page] = np.roll(power[page], -1)
+			self.power[page][-1] = P 
+		
+	def integ(self):
+		i={}
+		for page in self.modules:
+			i[page] = np.sum(self.temp[page] * self.sleep_dt))
+		return i
+		
+	def curr(self):
+		i={}
+		for page in self.modules:
+			i[page] = self.power[page][-1]
+		return i
+		
+	def derr(self):
+		i={}
+		for page in self.modules:
+			i[page] = np.mean( np.diff( self.powers[page] ) / self.sleep_dt )
+		return i
+		
+	def control(self):
+		while True:
+			time.sleep(self.sleep_dt)
+			self.update() # read new data point
+			
+			i, d, c = self.integ(), self.derr(), self.curr()
+			
+			self.set_new_power( i, d, c )
+			
+			
+		
+	
+	
 
 #def adjust_voltage(self, page, volt_inc = 0.1):
 #	self.get_voltage
@@ -88,10 +151,11 @@ def mod_log(modules, filename, interval = 5):
 	
 	with open(filename, 'w', newline = '') as csvfile:
 		csvwriter = csv.writer(csvfile)
-		header = ["time"]
+		header = ["Time"]
 		for page in modules:
 			header.append(f"Module {page} Temp ")
 			header.append(f"Module {page} Voltage ")
+			header.append(f"Module {page} Current ")
 		csvwriter.writerow(header)
 		try:
 			while True:
@@ -101,9 +165,11 @@ def mod_log(modules, filename, interval = 5):
 				for page in modules:
 					temp = power_supp.read_temperature(page)
 					voltage = power_supp.read_voltage(page)
+					current = power_supp.read_current(page)
 					data.append(temp)
 					data.append(voltage)
-					#print(f"Module {page}: {temp} °C, {voltage} V")
+					data.append(current)
+					#print(f"Module {page}: {temp} °C, {voltage} V, {current} A")
 				csvwriter.writerow([timestamp] + data)
 				csvfile.flush()
 				time.sleep(interval)
@@ -123,7 +189,7 @@ thread_log.start()
 
 try:
 	while True:
-		user_input = input("type 'on' to turn on power supply, 'off' to turn off, 'set' to set the voltage, 'read' to read the voltage, 'temp' to read the temp, 'quit' to exit the program: ")
+		user_input = input("type 'on' to turn on power supply module, 'off' to turn off module, 'set' to set the voltage, 'read' to read the voltage, 'temp' to read the temp, 'quit' to exit the program: ")
 		
 		if user_input in ['on', 'off', 'set volt', 'read volt', 'read temp', 'quit']:
 			page = int(input("Select module (1,2,4): "))
@@ -142,9 +208,9 @@ try:
 				voltage = power_supp.read_voltage(page)
 				print(f"Current Voltage is {voltage} V")		
 
-		#elif user_input == 'quit':
-		#	print("Exiting...")
-		#	break
+			elif user_input == 'quit':
+				print("Exiting...")
+				break
 
 			elif user_input == 'read temp':
 				temp = power_supp.read_temperature(page)
