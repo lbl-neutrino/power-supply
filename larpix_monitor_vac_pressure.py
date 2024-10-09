@@ -26,11 +26,9 @@ spi = spidev.SpiDev()           # abbreviate spidev
 #import pyvisa
 
 import time
-
+import convert_resistance_to_temperature as ct
 # urllib3 has functions that will help with timeout url problems
 #import urllib3
-
-import time
 
 # Import ADS1x15 command library to read high voltages via ADC
 #import Adafruit_ADS1x15
@@ -131,14 +129,14 @@ def read_tempers():
     temperatures = [0,0,0,0]
 
     # 4 sensor register settings: enable, Ain positive, Ain negative
-    sensor_inputs = [0b0100_0011, 
-                     0b0110_0010, 
-                     0b1000_0001, 
-                     0b0010_0000] 
+    sensor_inputs = [0b1000_0011, # sensor pin 3-4 
+                     0b0110_0010,  # pin 2-3
+                     0b0100_0001,  # pin 1-2
+                     0b0010_0000]  # pin 0-1
 
     # used to calibrate ADC readings to degree C
-    adc_910 =  10_118_174               # ADC reading for 920 Ohm
-    adc_429 =   4_771_132               # ADC reading for 429 Ohm
+    adc_910 =  11054300               # ADC reading for 920 Ohm
+    adc_429 =  1660520              # ADC reading for 429 Ohm
 
     for sensor in range(0,4):
 
@@ -149,7 +147,7 @@ def read_tempers():
         # read the status register
         msg = [address_status + read*64, 0]
         status_result = spi.xfer2(msg)
-        print(status_result)
+        #print(status_result)
 
         # keep reading the status register until there is new data 
         # (i.e. highest bit=0)
@@ -163,10 +161,11 @@ def read_tempers():
         
         # convert the 24 bit adc reading into a decimal value
         decimal_result = data_result[1]*(2**16) + data_result[2]*(2**8) + data_result[3]
+       # print(decimal_result)
         temperatures[sensor]=decimal_result
-        continue
+        #continue
         # Determine resistance for the sensor reading
-        resistance = 91.02 + (42.94 - 91.02) * (decimal_result - adc_910) / (adc_429 - adc_910)
+        resistance = 199.5 + (29.98 - 199.5) * (decimal_result - adc_910) / (adc_429 - adc_910)
         
         # Convert resistance to temperature in Celcius (via interpolation
         # function from convert_resistance_to_termperature.py, and 
@@ -182,7 +181,7 @@ def read_tempers():
          #       "interp_resist_to_temp.\nTemp set to {temperatures[sensor]")
 
         else:
-            temperatures[sensor] = interp_resist_to_temp(resistance) + 273.15
+            temperatures[sensor] = ct.interp_resist_to_temp(resistance) + 273.15
 
     return temperatures
 
