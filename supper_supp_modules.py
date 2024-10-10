@@ -5,6 +5,12 @@ import time
 import csv
 from datetime import datetime
 import threading
+
+
+def twos_comp(val, bits):
+        if (val & (1 << (bits - 1))) != 0:
+                val = val - (1 << bits)
+        return val
  
 class power_supply:
 
@@ -49,23 +55,24 @@ class power_supply:
 		temp = data
 		return temp
 
-	def set_temp_warning_lim(self, page, limit):
-		self.set_page(page)
-		exp = 0
-		temp_com = int(limit * (2 ** exp))
-		self.bus.write_word_data(self.address, 0x51, temp_com)
-
 	def set_temp_fault_lim(self, page, limit):
 		self.set_page(page)
 		exp = 0
 		temp_com = int(limit * (2 ** exp))
 		self.bus.write_word_data(self.address, 0x4F, temp_com)
 
-	def read_current(self, page):
+	def set_current_limit(self, page, current_limit):
 		self.set_page(page)
 		exp = -8
+		current_val = int(current_limit * (2 ** -exp))
+		self.bus.write_word_data(self.address, 0x24, current_val)
+
+	def read_current(self, page):
+		self.set_page(page)
 		data = self.bus.read_word_data(self.address, 0x8C)
-		current = data * (2 ** exp)
+		exp = twos_comp( data // 2**11, 5 )
+		cur = data % 2**11
+		current = cur * (2 ** exp)
 		return current
 
 	def close(self):
@@ -83,7 +90,7 @@ class power_supply:
 		return power
 
 import numpy as np
-	
+"""	
 class power_adjust:
 
 	def __init__(self, modules, sleep_dt=1, n_samples=20):
@@ -126,7 +133,7 @@ class power_adjust:
 			i, d, c = self.integ(), self.derr(), self.curr()
 			
 			self.set_new_power( i, d, c )
-			
+			"""
 			
 		
 	
@@ -156,20 +163,23 @@ def mod_log(modules, filename, interval = 5):
 			header.append(f"Module {page} Temp ")
 			header.append(f"Module {page} Voltage ")
 			header.append(f"Module {page} Current ")
+			header.append(f"Module {page} Power ")
 		csvwriter.writerow(header)
 		try:
 			while True:
 				now = datetime.now()
-				timestamp = now.strftime('%H:%M:%S')
+				timestamp = now.strftime('%d-%m-%Y  %H:%M:%S')
 				data = []
 				for page in modules:
 					temp = power_supp.read_temperature(page)
 					voltage = power_supp.read_voltage(page)
 					current = power_supp.read_current(page)
+					power = power_supp.read_power(page)
 					data.append(temp)
 					data.append(voltage)
 					data.append(current)
-					#print(f"Module {page}: {temp} °C, {voltage} V, {current} A")
+					data.append(power)
+					#print(f"Module {page}: {temp} °C, {voltage} V, {current} A, {power} W")
 				csvwriter.writerow([timestamp] + data)
 				csvfile.flush()
 				time.sleep(interval)
@@ -189,9 +199,9 @@ thread_log.start()
 
 try:
 	while True:
-		user_input = input("type 'on' to turn on power supply module, 'off' to turn off module, 'set' to set the voltage, 'read' to read the voltage, 'temp' to read the temp, 'quit' to exit the program: ")
+		user_input = input("type 'on' to turn on power supply module, 'off' to turn off module, 'set volt' to set the voltage, 'set current' to set the current, 'read volt' to read the voltage, 'read temp' to read the temp, 'read power' to read the power, 'quit' to exit the program: ")
 		
-		if user_input in ['on', 'off', 'set volt', 'read volt', 'read temp', 'quit']:
+		if user_input in ['on', 'off', 'set volt', 'set current', 'read volt', 'read power', 'read temp', 'quit']:
 			page = int(input("Select module (1,2,4): "))
 
 			if user_input == 'on':
@@ -204,6 +214,10 @@ try:
 				voltage = float(input("Enter the desired voltage: "))
 				power_supp.set_voltage(page, voltage)
 		
+			elif user_input == 'set current':
+				current_limit = float(input("Enter the current limit: "))
+				power_supp.set_current_limit(page, current_limit)		
+		
 			elif user_input == 'read volt':
 				voltage = power_supp.read_voltage(page)
 				print(f"Current Voltage is {voltage} V")		
@@ -215,11 +229,15 @@ try:
 			elif user_input == 'read temp':
 				temp = power_supp.read_temperature(page)
 				print(f"Current temp of module {page} is {temp} °C")
-
+				
+			elif user_input == 'read power':
+				power = power_supp.read_power(page)
+				print(f"Current temp of module {page} is {power} W")
+				
 		else:	
 			print("invalid command. enter 'on', 'off', 'set volt', 'read volt', 'read temp', 'quit'.")
 
-finally: 
+finally:  
 	for page in power_supp.valid_pages:
 		power_supp.off_mod(page)
 	power_supp.close()
