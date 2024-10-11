@@ -56,11 +56,11 @@ def init_registers():
     registers[address][3] = f'- Ain7 output, ex current = 50 microA -'
 
     # set  bipolar OFF, enable buffers for Ain(+/-) and Refin(+/-), 
-    # set Ref source = REFIN1(+/-), gain = 16
+    # set Ref source = REFIN1(+/-), gain = 8
     address = 0x19                    # register 25 is Config_0
-    msg = [address + write*64, 0b0000_0001, 0b1110_0100] 
+    msg = [address + write*64, 0b0000_0001, 0b1110_0011] 
     spi.xfer2(msg)
-    registers[address][3] = '- Gain = 16, bipolar OFF, buffers, REFIN1(+/-) -'
+    registers[address][3] = '- Gain = 8, bipolar OFF, buffers, REFIN1(+/-) -'
 
     # set the power mode in the ADC_CONTROL register
     address = 1                     # register 1 is ADC_CONTROL
