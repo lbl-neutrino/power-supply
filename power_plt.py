@@ -14,27 +14,31 @@ class Scope():
         self.tdata = np.array([])
         self.ydatas = [np.array([]) for _ in range(modules)]  
         self.t0 = time.perf_counter()
-        self.lines = [Line2D([], []) for _ in range(modules)]  
+        
+        self.colors = ['r', 'g', 'm', 'b']
+        self.lines = [Line2D([], [], color=self.colors[i], label=f'Module {i+1}') for i in range(modules)]
+        #self.lines = [Line2D([], []) for _ in range(modules)]  
         for line in self.lines:
             self.ax.add_line(line)
-        self.ax.set_ylim(0, 100)  
+        self.ax.set_ylim(0, 160)  
         self.ax.set_xlim(0, self.maxt)
         self.ax.set_title("Power of Modules")
         self.ax.set_xlabel("Time (s)")
         self.ax.set_ylabel("Power (W)")
+        self.ax.legend(loc='upper left')
 
     def update(self, data):
         t, powers = data
         self.tdata = np.append(self.tdata, t)
-        self.tdata = self.tdata[self.tdata > (t - self.maxt)]
+        time_filter = self.tdata > (t - self.maxt)
+        self.tdata = self.tdata[time_filter]
         
         for i, power in enumerate(powers):
             self.ydatas[i] = np.append(self.ydatas[i], power)
-            self.ydatas[i] = self.ydatas[i][self.tdata > (t - self.maxt)]
-
+            self.ydatas[i] = self.ydatas[i][time_filter]
+            
         for i, line in enumerate(self.lines):
             line.set_data(self.tdata, self.ydatas[i])
-
         self.ax.set_xlim(self.tdata[0], self.tdata[0] + self.maxt)
         self.ax.figure.canvas.draw()
         return self.lines
