@@ -6,7 +6,9 @@ from datetime import datetime
 import threading
 import numpy as np
 import larpix_monitor_vac_pressure as lmp
-
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.lines import Line2D
 
 def read_temps():
     temperatures = lmp.read_tempers()
