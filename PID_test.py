@@ -143,6 +143,7 @@ def main():
     addr = 0x50
     power_supp = power_supply(addr)
     setpoint = 350 #this vlaue is in K, equals 215 C
+    lmp.init_registers()
     #pid_controllers are the 3 RTD temps that are being used. This should be adjusted to 4 when we decide how to use 4th RTD
     pid_controllers = [PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint), PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint), PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint)]
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
