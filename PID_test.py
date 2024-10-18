@@ -14,6 +14,11 @@ def read_temps():
     temperatures = lmp.read_tempers()
     return temperatures
     
+def twos_comp(val, bits):
+    if (val & (1 << (bits - 1))) != 0:
+        val = val - (1 << bits)
+        return val
+
 class power_supply:
 
     def __init__(self, addr, id=1):
@@ -21,8 +26,8 @@ class power_supply:
         self.address = addr
 
     def set_page(self, page):
-        if page not in self.valid_pages:
-            raise ValueError(f"Invalid module page {page}.")
+ #       if page not in self.valid_pages:
+ #           raise ValueError(f"Invalid module page {page}.")
         self.bus.write_byte_data(self.address, 0x00, page)
 
     def set_voltage(self, page, voltage):                    #sets output voltage
@@ -37,10 +42,27 @@ class power_supply:
         current = self.read_current(page)
         power = current * voltage
         return power
-         
+    
+    def read_voltage(self, page):
+        self.set_page(page)
+        exp = -8
+        data = self.bus.read_word_data(self.address, 0x8B)
+        voltage = data * (2 ** exp)
+        return voltage
+
+    def read_current(self, page):
+        self.set_page(page)
+        data = self.bus.read_word_data(self.address, 0x8C)
+        exp = twos_comp(data // 2**11, 5)
+        cur = data % 2**11
+        current = cur * (2 ** exp)
+        return current
+
+
+
 class PID:
 
-    def __init__(self, Kp=1.0, Ki=1.0, Kd=1.0, setpoint=488, sample_time = 1.0, output_limits=(0, 100), auto_mode=True, proportional_on_measurement=False, differential_on_measurement=True, error_map=None, time_fn=None, starting_output=0.0):
+    def __init__(self, Kp=1.0, Ki=0.0, Kd=0.0, setpoint=488, sample_time = 1.0, output_limits=(0, 40), auto_mode=True, proportional_on_measurement=False, differential_on_measurement=True, error_map=None, time_fn=None, starting_output=0.0):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -57,7 +79,7 @@ class PID:
         self.integral=0
         self.derivative=0
         self.last_time=None
-        self.last_error=None
+        self.last_error=0
         self.last_output=None
         self.last_input=None
         
@@ -87,8 +109,8 @@ class Scope():
         self.tdata = np.array([])
         self.ydatas = [np.array([]) for _ in [1,2,4]]  
         self.t0 = time.perf_counter()
-        self.colors = ['r', 'g', 'm', 'b']
-        self.lines = [Line2D([], [], color=self.colors[i], label=f'{legend_prefix} {i+1}') for i in [1,2,4]]
+        self.colors = ['r', 'g', 'b']
+        self.lines = [Line2D([], [], color=self.colors[i], label=f'{legend_prefix} {i+1}') for i in range(modules)]
         for line in self.lines:
             self.ax.add_line(line)
         self.ax.set_ylim(ylim)  
@@ -123,9 +145,10 @@ def emitter_power(pid_controllers, power_supply, modules=3):
             power = pid_controllers[i].update(current_temp)
             power_supply.set_voltage(i + 1, power)
             powers.append(power)  # Collect power values for each module
-        yield t, powers'''
+        yield t, powers
+'''
 
-def emitter_power():
+def emitter_power(power_supply):
     start_time = time.perf_counter()
     while True:
         t = time.perf_counter() - start_time
@@ -144,28 +167,41 @@ def emitter_temp():
 def main():
     addr = 0x50
     power_supp = power_supply(addr)
-    setpoint = 350 #this vlaue is in K, equals 215 C
+    setpoint = 330 #this vlaue is in K, equals 215 C
     lmp.init_registers()
     #pid_controllers are the 3 RTD temps that are being used. This should be adjusted to 4 when we decide how to use 4th RTD
-    pid_controllers = [PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint), PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint), PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint)]
+    pid_controllers = [PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint), PID(Kp=1.0, Ki=1.0, Kd=1.0, setpoint=setpoint), PID(Kp=6.5, Ki=1., Kd=7.0, setpoint=setpoint)]
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
     #Create scope for power plot
-    power_scope = Scope(ax1, maxt=20, dt=0.1, modules=3, title="Power of Modules", ylabel="Power (W)", legend_prefix="Module", ylim=(0,100))
+#    power_scope = Scope(ax1, maxt=20, dt=0.1, modules=3, title="Power of Modules", ylabel="Power (W)", legend_prefix="Module", ylim=(0,100))
     #Create scope for temperature plot
-    temp_scope = Scope(ax2, maxt=20, dt=0.1, modules=4, title="Temperature of RTDs", ylabel="Temperature (K)", legend_prefix="RTD", ylim=(250,450))
+#    temp_scope = Scope(ax2, maxt=20, dt=0.1, modules=3, title="Temperature of RTDs", ylabel="Temperature (K)", legend_prefix="RTD", ylim=(250,450))
     #Power and Temperature animations
-    power_ani = animation.FuncAnimation(fig, power_scope.update, emitter_power(pid_controllers, power_supply, modules=3), interval=100, blit=True)
-    temp_ani = animation.FuncAnimation(fig, temp_scope.update, emitter_temp(), interval=100, blit=True)
+#    power_ani = animation.FuncAnimation(fig, power_scope.update, emitter_power(power_supp), interval=100, blit=True)
+#    temp_ani = animation.FuncAnimation(fig, temp_scope.update, emitter_temp(), interval=100, blit=True)
+    ts, T, V = [], [], []
     while True:
+        ax1.clear()
+        ax2.clear()
+        ts.append(time.time())
         temps = read_temps()
     #    for i in range(3):
-        current_temp = temps[3]
-        power = pid_controllers[3].update(current_temp)
-        power_supp.set_voltage(4, power)
-        time.sleep(1)
+        current_temp = temps[1]
+        T.append(current_temp)
+        v = pid_controllers[2].update(current_temp)
+        power_supp.set_voltage(4, v)
+        V.append(v)
+        ax1.plot(ts, T, label='T')
+        ax2.plot(ts, V, label='V')
+        ax1.legend()
+        ax2.legend()
         plt.tight_layout()
-        plt.show()
-
+        #plt.show()
+        plt.savefig('test.png')
+        time.sleep(1)
+     #   plt.tight_layout()
+      #  plt.show()
+        print(f'T = {current_temp} ; V = {v}')
 if __name__ == '__main__':
     main()        
         
