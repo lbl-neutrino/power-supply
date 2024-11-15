@@ -191,10 +191,10 @@ addr = 0x50   #the default slave address = 1010000 = 0x50
 power_supp = power_supply(addr)
 #signal.signal(signal.SIGINT, Ctrl_C_signal)
 mods = [1, 2, 3, 4]
-log_file = "module_log.csv"	
+#log_file = "module_log.csv"	
 #mod_log(mods, log_file, interval = 5)	
-thread_log = threading.Thread(target = mod_log, args = (mods, log_file, 5))
-thread_log.start()
+#thread_log = threading.Thread(target = mod_log, args = (mods, log_file, 5))
+#thread_log.start()
 
 
 try:
