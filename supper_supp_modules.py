@@ -190,7 +190,7 @@ def mod_log(modules, filename, interval = 5):
 addr = 0x50   #the default slave address = 1010000 = 0x50
 power_supp = power_supply(addr)
 #signal.signal(signal.SIGINT, Ctrl_C_signal)
-mods = [1, 2, 3, 4]
+mods = [1, 2, 3]
 #log_file = "module_log.csv"	
 #mod_log(mods, log_file, interval = 5)	
 #thread_log = threading.Thread(target = mod_log, args = (mods, log_file, 5))
@@ -202,7 +202,7 @@ try:
 		user_input = input("type 'on' to turn on power supply module, 'off' to turn off module, 'set volt' to set the voltage, 'set current' to set the current, 'read volt' to read the voltage, 'read temp' to read the temp, 'read power' to read the power, 'quit' to exit the program: ")
 		
 		if user_input in ['on', 'off', 'set volt', 'set current', 'read volt', 'read power', 'read temp', 'quit']:
-			page = int(input("Select module (1,2,4): "))
+			page = int(input("Select module (1,2,3): "))
 
 			if user_input == 'on':
 				power_supp.on_mod(page)

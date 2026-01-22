@@ -51,7 +51,7 @@ def init_registers():
 
     # set current out to Ain7 using an excitation current of 50 micro-A
     address = 3                     # register 3 is IO_Control_1
-    msg = [address + write*64, 0, 0b0000_0001, 0b0000_0111]
+    msg = [address + write*64, 0, 0b0000_0001, 0b1001_1010]
     spi.xfer2(msg)
     registers[address][3] = f'- Ain7 output, ex current = 50 microA -'
 

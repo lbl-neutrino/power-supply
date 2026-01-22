@@ -1,4 +1,3 @@
-
 import numpy as np
 # An SPI (Serial Peripheral Interface bus) transports information to or 
 # from the AD7124-8 (temperature sensors)
@@ -123,11 +122,11 @@ def init_registers():
     spi.xfer2(msg)
     registers[address][3] = '- enabled w setup0, pos=Ain1, neg=Ain0 -'
 
-    # set current out to Ain7 using an excitation current of 50 micro-A
+    # set current out to Ain2 and Ain6 using an excitation current of 50 micro-A
     address = 3                     # register 3 is IO_Control_1
-    msg = [address + write*64, 0, 0b0000_0001, 0b0000_0111]
+    msg = [address + write*64, 0, 0b0000_1001, 0b1001_1010]
     spi.xfer2(msg)
-    registers[address][3] = f'- Ain7 output, ex current = 50 microA -'
+    registers[address][3] = f'- Ain2 and 6 output, ex current = 50 microA -'
 
     # set  bipolar OFF, enable buffers for Ain(+/-) and Refin(+/-), 
     # set Ref source = REFIN1(+/-), gain = 8
@@ -152,11 +151,12 @@ def read_tempers():
     address_data = 2	# ADC Data is available on register 2
     address_ch0 = 9
     decimal_result = 0
-    temperatures = [0,0,0,0]
+    temperatures = [0,0,0,0,0]
 
     # 4 sensor register settings: enable, Ain positive, Ain negative
-    sensor_inputs = [0b1000_0011, # sensor pin 3-4 
-                     0b0110_0010,  # pin 2-3
+    sensor_inputs = [0b1100_0101,   #pin 5-6
+                     0b1010_0100,   #pin 4-5
+                     0b1000_0011, # sensor pin 3-4 
                      0b0100_0001,  # pin 1-2
                      0b0010_0000]  # pin 0-1
 
@@ -164,7 +164,17 @@ def read_tempers():
     adc_910 =  11054300               # ADC reading for 920 Ohm
     adc_429 =  1660520              # ADC reading for 429 Ohm
 
-    for sensor in range(0,4):
+    for sensor in range(0,5):
+
+        if sensor >2:
+            address = 0x19                    # register 25 is Config_0
+            msg = [address + write*64, 0b0000_0001, 0b1110_0011] #00 vs. 01 in bits 4:3 of else statement is the selection between REFIN1 and REFIN2
+            spi.xfer2(msg)
+
+        else:
+            address = 0x19                    # register 25 is Config_0
+            msg = [address + write*64, 0b0000_0001, 0b1110_1011]
+            spi.xfer2(msg)
 
         # enable channel 0 to read the desired sensor's inputs
         msg = [address_ch0 + write*64, 0b1000_0000, sensor_inputs[sensor]]
@@ -182,13 +192,14 @@ def read_tempers():
         # read the new adc measurement
         msg = [address_data + read*64, 0, 0, 0]
         data_result = spi.xfer2(msg)
-        
         # convert the 24 bit adc reading into a decimal value
         decimal_result = data_result[1]*(2**16) + data_result[2]*(2**8) + data_result[3]
-        temperatures[sensor]=decimal_result
+       # temperatures[sensor]=decimal_result
         # Determine resistance for the sensor reading
         resistance = 199.5 + (29.98 - 199.5) * (decimal_result - adc_910) / (adc_429 - adc_910)
-        
+        resistance=resistance*10
+        #print(resistance)
+        #print(resistance)
         # Convert resistance to temperature in Celcius (via interpolation
         # function from convert_resistance_to_termperature.py, and 
         # convert celcius to kelvin. First check range(19,390) which 
@@ -196,10 +207,10 @@ def read_tempers():
         if resistance <= 19 or resistance >= 390:
             # this eroneous value is intended to alert user to a problem
             temperatures[sensor] = float(0.00)
-            
         else:
             temperatures[sensor] = ct.interp_resist_to_temp(resistance) + 273.15
-
+        #temperatures[sensor]=resistance
+    print(temperatures)
     return temperatures
 
 
