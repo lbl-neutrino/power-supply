@@ -7,6 +7,11 @@ from datetime import datetime
 import threading
 
 
+#0x50 is slave address for 1010000 of A6 through A0 (see table 2 in pmbus manual)
+addr = 0x50   #the default slave address = 1010000 = 0x50
+mods = [1, 2, 3]
+
+
 def twos_comp(val, bits):
         if (val & (1 << (bits - 1))) != 0:
                 val = val - (1 << bits)
@@ -90,67 +95,6 @@ class power_supply:
 		return power
 
 import numpy as np
-"""	
-class power_adjust:
-
-	def __init__(self, modules, sleep_dt=1, n_samples=20):
-		addr = 0x50
-		self.modules=modules
-		self.sleep_dt = sleep_dt
-		self.power_supp = power_supply(addr)
-		self.power = {}
-		for p in modules: self.power[p] = np.zeros(n_samples)
-		
-	def update(self):
-		for page in modules:
-			P = self.power_supp.read_power(page)
-			self.power[page] = np.roll(power[page], -1)
-			self.power[page][-1] = P 
-		
-	def integ(self):
-		i={}
-		for page in self.modules:
-			i[page] = np.sum(self.temp[page] * self.sleep_dt))
-		return i
-		
-	def curr(self):
-		i={}
-		for page in self.modules:
-			i[page] = self.power[page][-1]
-		return i
-		
-	def derr(self):
-		i={}
-		for page in self.modules:
-			i[page] = np.mean( np.diff( self.powers[page] ) / self.sleep_dt )
-		return i
-		
-	def control(self):
-		while True:
-			time.sleep(self.sleep_dt)
-			self.update() # read new data point
-			
-			i, d, c = self.integ(), self.derr(), self.curr()
-			
-			self.set_new_power( i, d, c )
-			"""
-			
-		
-	
-	
-
-#def adjust_voltage(self, page, volt_inc = 0.1):
-#	self.get_voltage
-#	while True:
-#		for module in modules:
-#			voltage = power_supp.read_voltage(module)
-#			if voltage < v_min:
-#				current_v = power_supp.read_voltage(module)
-#				self.set_voltage(page, self.read_voltage(page) + 2)
-#			elif: voltage > v_max:
-#				current_v = power_supp.read_voltage(module)
-#				self.set_voltage(page, self.read_voltage(page) - 2)
-#		time.sleep(5)
 
 def mod_log(modules, filename, interval = 5):
 	addr = 0x50
@@ -186,64 +130,5 @@ def mod_log(modules, filename, interval = 5):
 		except KeyboardInterrupt:
 			power_supp.close()
 			
-#0x50 is slave address for 1010000 of A6 through A0 (see table 2 in pmbus manual)
-addr = 0x50   #the default slave address = 1010000 = 0x50
-power_supp = power_supply(addr)
-#signal.signal(signal.SIGINT, Ctrl_C_signal)
-mods = [1, 2, 3, 4]
-log_file = "module_log.csv"	
-#mod_log(mods, log_file, interval = 5)	
-thread_log = threading.Thread(target = mod_log, args = (mods, log_file, 5))
-thread_log.start()
-
-
-try:
-	while True:
-		user_input = input("type 'on' to turn on power supply module, 'off' to turn off module, 'set volt' to set the voltage, 'set current' to set the current, 'read volt' to read the voltage, 'read temp' to read the temp, 'read power' to read the power, 'quit' to exit the program: ")
-		
-		if user_input in ['on', 'off', 'set volt', 'set current', 'read volt', 'read power', 'read temp', 'quit']:
-			page = int(input("Select module (1,2,4): "))
-
-			if user_input == 'on':
-				power_supp.on_mod(page)
-
-			elif user_input == 'off':
-				power_supp.off_mod(page)
-
-			elif user_input == 'set volt':
-				voltage = float(input("Enter the desired voltage: "))
-				power_supp.set_voltage(page, voltage)
-		
-			elif user_input == 'set current':
-				current_limit = float(input("Enter the current limit: "))
-				power_supp.set_current_limit(page, current_limit)		
-		
-			elif user_input == 'read volt':
-				voltage = power_supp.read_voltage(page)
-				print(f"Current Voltage is {voltage} V")		
-
-			elif user_input == 'quit':
-				print("Exiting...")
-				break
-
-			elif user_input == 'read temp':
-				temp = power_supp.read_temperature(page)
-				print(f"Current temp of module {page} is {temp} °C")
-				
-			elif user_input == 'read power':
-				power = power_supp.read_power(page)
-				print(f"Current temp of module {page} is {power} W")
-				
-		else:	
-			print("invalid command. enter 'on', 'off', 'set volt', 'read volt', 'read temp', 'quit'.")
-
-finally:  
-	for page in power_supp.valid_pages:
-		power_supp.off_mod(page)
-	power_supp.close()
-
-
-
-
 
 
