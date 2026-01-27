@@ -48,6 +48,9 @@ class StateManager:
         with open(self.statefile, 'w') as f:
             json.dump(self.state, f, indent=4)
 
+    def update(self):
+        with open(self.statefile, 'r') as f:
+            self.state = json.load(f)
 
 class Application(tk.Frame):
 
@@ -110,10 +113,17 @@ class Application(tk.Frame):
             self.toggle_enabled_off(i)
 
     def turn_on(self, i):
+        #Set the desired voltage before enabling module
+        self.state.update() 
+        voltage = self.state.get_voltage(i)
+
+        #enable supply
+        self.set_voltage(i, voltage)
         self.supply.on_mod( self.page[i] ) 
 
     def turn_off(self, i):
-        self.supply.off_mod( self.page[i] ) 
+        self.supply.set_voltage( self.page[i], 0 ) #Turn supply to 0 to avoid accidental power up
+        self.supply.off_mod( self.page[i] ) #Turn off enable bit for supply
 
     def set_voltage(self, i, voltage):
         self.supply.set_voltage( self.page[i], voltage )
@@ -146,6 +156,7 @@ class Application(tk.Frame):
             self.inputs[f"input_{i+1}"]["value_label"].config(text="Invalid input")
 
 root = tk.Tk()
+root.title('POWER SUPPLY CONTROLLER')
 app = Application(master=root)
 app.mainloop()
 
